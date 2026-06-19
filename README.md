@@ -102,6 +102,25 @@ Full post index → [examples/published-posts.json](examples/published-posts.jso
 
 ---
 
+## AI Assistant Skill (install in 30 seconds)
+
+This repo includes a ready-to-use **AI skill** so assistants know exactly how to preview and publish posts:
+
+```
+skills/n8n-linkedin-poster/SKILL.md      ← main skill (Cursor, Claude, Grok, Codex)
+.cursor/rules/n8n-linkedin-poster.mdc    ← Cursor rule (copy to your project)
+```
+
+**Install:**
+
+| Platform | Command |
+|----------|---------|
+| **Cursor** | Copy `.cursor/rules/n8n-linkedin-poster.mdc` into your project |
+| **Claude / Grok** | Copy `skills/n8n-linkedin-poster/` to `.grok/skills/` or `~/.claude/skills/` |
+| **Claude Projects** | Upload `SKILL.md` + `prompts/linkedin-content-system-prompt.md` as knowledge |
+
+Full install guide → [skills/n8n-linkedin-poster/references/install.md](skills/n8n-linkedin-poster/references/install.md)
+
 ## AI Assistant Integrations
 
 Trigger posts from the tools you already use:
@@ -109,7 +128,7 @@ Trigger posts from the tools you already use:
 | Platform | Guide | One-liner |
 |----------|-------|-----------|
 | **Claude** | [docs/integrations/claude.md](docs/integrations/claude.md) | Add webhook URL to Project instructions |
-| **Cursor** | [docs/integrations/cursor.md](docs/integrations/cursor.md) | Custom rule + `curl` from Composer |
+| **Cursor** | [docs/integrations/cursor.md](docs/integrations/cursor.md) | Use included `.cursor/rules/` + skill |
 | **Devin** | [docs/integrations/devin-and-agents.md](docs/integrations/devin-and-agents.md) | Tool definition with `dry_run` default |
 | **Any AI agent** | [docs/integrations/general-ai-assistants.md](docs/integrations/general-ai-assistants.md) | Webhook URL + JSON schema + system prompt |
 
@@ -183,6 +202,13 @@ n8n-ai-linkedin-poster/
 │   └── webhook-payloads.json
 ├── prompts/
 │   └── linkedin-content-system-prompt.md
+├── skills/
+│   └── n8n-linkedin-poster/
+│       ├── SKILL.md
+│       └── references/
+├── .cursor/
+│   └── rules/
+│       └── n8n-linkedin-poster.mdc
 └── .github/
     └── PULL_REQUEST_TEMPLATE.md
 ```

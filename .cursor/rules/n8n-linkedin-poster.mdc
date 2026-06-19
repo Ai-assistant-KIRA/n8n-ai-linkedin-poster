@@ -1,0 +1,33 @@
+---
+description: Generate and publish AI LinkedIn posts via n8n-ai-linkedin-poster webhook
+globs:
+alwaysApply: false
+---
+
+# n8n AI LinkedIn Poster
+
+When the user asks to create, preview, or publish a LinkedIn post with AI:
+
+1. Read `skills/n8n-linkedin-poster/SKILL.md` and `prompts/linkedin-content-system-prompt.md`
+2. Webhook: `POST ${N8N_WEBHOOK_URL:-http://localhost:5678}/webhook/linkedin-ai-post`
+3. **Always preview first** with `"dry_run": true` — show caption to user
+4. **Only publish** when user explicitly confirms (`dry_run: false`)
+5. User must have their own LinkedIn Developer App + n8n credentials ([docs/linkedin-developer-app.md](docs/linkedin-developer-app.md))
+
+## Preview
+
+```bash
+curl -s -X POST "${N8N_WEBHOOK_URL:-http://localhost:5678}/webhook/linkedin-ai-post" \
+  -H "Content-Type: application/json" \
+  -d '{"topic": "...", "tone": "professional", "dry_run": true}'
+```
+
+## Publish (after confirmation)
+
+```bash
+curl -s -X POST "${N8N_WEBHOOK_URL:-http://localhost:5678}/webhook/linkedin-ai-post" \
+  -H "Content-Type: application/json" \
+  -d '{"topic": "...", "tone": "professional", "dry_run": false}'
+```
+
+Payload reference: `examples/webhook-payloads.json`
