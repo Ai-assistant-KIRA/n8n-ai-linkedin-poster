@@ -24,6 +24,7 @@ services:
       # LinkedIn workflow configuration
       # Get your Person ID via docs/setup.md#get-your-linkedin-person-urn
       - LINKEDIN_PERSON_ID=YOUR_PERSON_ID
+      - LINKEDIN_API_VERSION=202502
 
       # Optional: pass through AI provider keys (or configure in n8n Credentials UI)
       # - OPENAI_API_KEY=sk-...

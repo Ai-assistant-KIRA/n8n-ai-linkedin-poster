@@ -134,9 +134,36 @@ The workflow ships with **OpenAI** nodes. Swap them for any compatible provider:
 
 ## LinkedIn Settings
 
-### API Version
+### API Version (configurable)
 
-HTTP nodes use `LinkedIn-Version: 202502`. Update when LinkedIn deprecates versions — see [LinkedIn API versioning](https://learn.microsoft.com/en-us/linkedin/marketing/versioning).
+The **Configuration** node reads `LINKEDIN_API_VERSION` from your environment (default: **`202502`** — proven stable for image upload + UGC posts).
+
+```bash
+# docker-compose.yml or .env
+LINKEDIN_API_VERSION=202502
+```
+
+Used on **LinkedIn Init Upload** and **LinkedIn Create Post** headers. Update when LinkedIn deprecates versions — see [LinkedIn API versioning](https://learn.microsoft.com/en-us/linkedin/marketing/versioning).
+
+### Image Content-Type (auto-detected)
+
+**Prepare LinkedIn Payload** detects `image/jpeg` or `image/png` from binary `mimeType` or file extension. **LinkedIn Upload Image** sends the dynamic Content-Type header.
+
+| Format | Supported by LinkedIn |
+|--------|---------------------|
+| JPEG | ✅ |
+| PNG | ✅ (DALL-E default) |
+| WebP / GIF | ❌ — add a conversion step or override in Prepare LinkedIn Payload |
+
+Preview responses include `imageContentType` and `imageFormatWarning` when format may be unsupported.
+
+### HTTP Retries
+
+LinkedIn HTTP nodes retry **3 times** with 3s backoff (`retryOnFail`, `maxTries: 3`). Image download nodes retry 3x with 2s backoff.
+
+### Error Handling
+
+Failed nodes route to **Format Error Response** → **Respond Error** (HTTP 500 JSON). Optionally import `workflows/linkedin-ai-poster-errors.json` and link it as **Settings → Error Workflow** for execution logging/alerts.
 
 ### Visibility
 

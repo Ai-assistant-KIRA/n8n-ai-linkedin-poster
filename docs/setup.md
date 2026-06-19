@@ -121,8 +121,11 @@ Your URN will be: `urn:li:person:AbCdEfGhIj`
 
 1. n8n UI → **Workflows** → **Import from File**
 2. Select `workflows/linkedin-ai-poster.json`
-3. Open each node with `REPLACE_WITH_YOUR_*` and assign credentials
-4. **Activate** the workflow (toggle in top-right)
+3. Import `workflows/linkedin-ai-poster-errors.json` (optional — for error logging)
+4. Open each node with `REPLACE_WITH_YOUR_*` and assign credentials
+5. Set env vars on the **Configuration** node: `LINKEDIN_PERSON_ID`, `LINKEDIN_API_VERSION` (default `202502`)
+6. **Activate** the main workflow (toggle in top-right)
+7. (Optional) Main workflow **Settings → Error Workflow** → select *AI LinkedIn Poster - Error Handler*
 
 Your webhook URL will be:
 
@@ -163,6 +166,7 @@ Expected response:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `LINKEDIN_PERSON_ID` | Yes | OpenID `sub` from userinfo |
+| `LINKEDIN_API_VERSION` | No | LinkedIn REST version header (default `202502`) |
 | `WEBHOOK_URL` | Prod | Public base URL for webhooks |
 | `OPENAI_API_KEY` | Optional | Can use n8n Credentials UI instead |
 | `N8N_BASIC_AUTH_*` | Recommended | Protect your n8n instance |

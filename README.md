@@ -186,7 +186,8 @@ n8n-ai-linkedin-poster/
 ├── CONTRIBUTING.md
 ├── docker-compose.yml
 ├── workflows/
-│   └── linkedin-ai-poster.json
+│   ├── linkedin-ai-poster.json
+│   └── linkedin-ai-poster-errors.json
 ├── docs/
 │   ├── setup.md
 │   ├── configuration.md

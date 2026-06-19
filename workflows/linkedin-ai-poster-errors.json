@@ -1,0 +1,85 @@
+{
+  "name": "AI LinkedIn Poster - Error Handler",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "error-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Optional Error Handler\n\nLink this workflow in the main workflow:\n**Settings → Error Workflow → AI LinkedIn Poster - Error Handler**\n\nLogs failed executions. Extend with Slack/email nodes.\n\nNote: Webhook callers still get JSON errors from the main workflow's **Respond Error** node. This handler is for monitoring only.",
+        "height": 220,
+        "width": 380,
+        "color": 3
+      },
+      "id": "error-sticky",
+      "name": "Error Handler Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [40, 80]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const err = $input.first().json;\nconst execution = err.execution || {};\nconst workflow = err.workflow || {};\nreturn [{\n  json: {\n    loggedAt: new Date().toISOString(),\n    workflowName: workflow.name || 'AI LinkedIn Poster',\n    workflowId: workflow.id,\n    executionId: execution.id,\n    executionUrl: execution.url,\n    lastNodeExecuted: execution.lastNodeExecuted,\n    errorMessage: execution.error?.message || err.trigger?.error?.message || 'Unknown error',\n    mode: execution.mode,\n    hint: 'Check main workflow execution in n8n UI for full stack trace.'\n  }\n}];"
+      },
+      "id": "format-error-log",
+      "name": "Format Error Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {},
+      "id": "error-done",
+      "name": "Logged",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "notesInFlow": true,
+      "notes": "Add Slack/Email node here to get alerts on failed publishes."
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Format Error Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error Log": {
+      "main": [
+        [
+          {
+            "node": "Logged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "versionId": "1.0.0",
+  "meta": {
+    "instanceId": "n8n-ai-linkedin-poster-errors"
+  },
+  "pinData": {},
+  "tags": [
+    { "name": "linkedin" },
+    { "name": "error-handler" }
+  ]
+}

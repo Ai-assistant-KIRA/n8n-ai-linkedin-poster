@@ -53,7 +53,22 @@ Use ngrok, Cloudflare Tunnel, n8n Cloud, or deploy to a VPS. See [setup.md](setu
 
 ### 426 Version Header Required
 
-Add header `LinkedIn-Version: 202502` to all LinkedIn HTTP nodes. The workflow includes this by default.
+Set `LINKEDIN_API_VERSION=202502` in your environment (default in **Configuration** node). If LinkedIn deprecates this version, update the env var — see [LinkedIn API versioning](https://learn.microsoft.com/en-us/linkedin/marketing/versioning).
+
+### Webhook returns 500 JSON error
+
+The workflow now returns structured errors via **Respond Error**:
+
+```json
+{
+  "success": false,
+  "error": "Set LINKEDIN_PERSON_ID in docker-compose/.env...",
+  "failedNode": "Prepare LinkedIn Payload",
+  "hint": "See docs/troubleshooting.md..."
+}
+```
+
+Check `failedNode` in n8n **Executions** for the full stack trace.
 
 ---
 
