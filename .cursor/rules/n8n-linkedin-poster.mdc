@@ -19,6 +19,7 @@ When the user asks to create, preview, or publish a LinkedIn post with AI:
 ```bash
 curl -s -X POST "${N8N_WEBHOOK_URL:-http://localhost:5678}/webhook/linkedin-ai-post" \
   -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: ${WEBHOOK_SECRET:-}" \
   -d '{"topic": "...", "tone": "professional", "dry_run": true}'
 ```
 

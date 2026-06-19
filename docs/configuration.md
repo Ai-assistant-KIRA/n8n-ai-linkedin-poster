@@ -17,7 +17,9 @@ Customize the **n8n AI LinkedIn Poster** workflow for your brand, tone, and AI s
 | `media_title` | string | topic | LinkedIn image title (max 200 chars) |
 | `visibility` | string | `PUBLIC` | `PUBLIC` or `CONNECTIONS` |
 | `dry_run` | boolean | `false` | `true` = preview only, no LinkedIn API calls |
-| `publish` | boolean | `true` | `false` = generate content but don't post |
+| `publish` | boolean | `true` | `false` = generate content but skip LinkedIn post |
+| `generate_image` | boolean | auto | `true` on dry_run forces AI image (costs API $) |
+| `webhook_secret` | string | — | Alternative to `X-Webhook-Secret` header |
 | `generate_caption` | boolean | auto | Force AI caption even if topic is empty |
 | `generate_image` | boolean | auto | Force AI image generation |
 
@@ -161,9 +163,23 @@ Preview responses include `imageContentType` and `imageFormatWarning` when forma
 
 LinkedIn HTTP nodes retry **3 times** with 3s backoff (`retryOnFail`, `maxTries: 3`). Image download nodes retry 3x with 2s backoff.
 
+### Webhook Authentication
+
+Set `WEBHOOK_SECRET` in environment. Every request must include:
+
+```
+X-Webhook-Secret: your-secret
+```
+
+Invalid/missing secret returns HTTP **401**. See [SECURITY.md](../SECURITY.md).
+
+### Caption-only preview
+
+`dry_run: true` without `generate_image: true` skips DALL-E — fast, free caption preview.
+
 ### Error Handling
 
-Failed nodes route to **Format Error Response** → **Respond Error** (HTTP 500 JSON). Optionally import `workflows/linkedin-ai-poster-errors.json` and link it as **Settings → Error Workflow** for execution logging/alerts.
+Failed nodes route to **Format Error Response** → **Respond Error** (HTTP 500) or **Respond Unauthorized** (HTTP 401). Optionally import `workflows/linkedin-ai-poster-errors.json` and link as **Settings → Error Workflow** for logging/alerts.
 
 ### Visibility
 

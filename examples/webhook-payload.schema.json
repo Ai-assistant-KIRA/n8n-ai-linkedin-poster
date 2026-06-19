@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Ai-assistant-KIRA/n8n-ai-linkedin-poster/examples/webhook-payload.schema.json",
+  "title": "LinkedIn AI Poster Webhook Payload",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "topic": { "type": "string", "minLength": 1 },
+    "caption": { "type": "string" },
+    "text": { "type": "string" },
+    "image_prompt": { "type": "string" },
+    "imagePrompt": { "type": "string" },
+    "image_url": { "type": "string", "format": "uri" },
+    "imageUrl": { "type": "string", "format": "uri" },
+    "image_base64": { "type": "string", "minLength": 10 },
+    "imageBase64": { "type": "string", "minLength": 10 },
+    "tone": {
+      "type": "string",
+      "enum": ["professional", "insightful", "conversational", "bold"]
+    },
+    "hashtags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "media_title": { "type": "string", "maxLength": 200 },
+    "mediaTitle": { "type": "string", "maxLength": 200 },
+    "visibility": { "type": "string", "enum": ["PUBLIC", "CONNECTIONS"] },
+    "dry_run": { "type": "boolean" },
+    "dryRun": { "type": "boolean" },
+    "publish": { "type": "boolean" },
+    "generate_caption": { "type": "boolean" },
+    "generate_image": { "type": "boolean" },
+    "generateImage": { "type": "boolean" },
+    "webhook_secret": { "type": "string" }
+  },
+  "anyOf": [
+    { "required": ["topic"] },
+    { "required": ["caption"] },
+    { "required": ["text"] }
+  ]
+}

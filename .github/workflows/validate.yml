@@ -1,0 +1,34 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install optional schema validator
+        run: pip install jsonschema
+
+      - name: Validate workflow JSON and examples
+        run: python scripts/validate-workflows.py
+
+      - name: Verify workflow node count
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          wf = json.loads(Path("workflows/linkedin-ai-poster.json").read_text())
+          assert len(wf["nodes"]) >= 25, "main workflow should have 25+ nodes"
+          assert "Decode Base64 Image" in {n["name"] for n in wf["nodes"]}
+          print("Workflow structure OK")
+          PY

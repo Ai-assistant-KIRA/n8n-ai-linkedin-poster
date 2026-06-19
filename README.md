@@ -9,6 +9,8 @@
 [![LinkedIn API](https://img.shields.io/badge/LinkedIn-REST%20v202502-0A66C2?logo=linkedin&logoColor=white)](https://learn.microsoft.com/en-us/linkedin/marketing/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![CI](https://github.com/Ai-assistant-KIRA/n8n-ai-linkedin-poster/actions/workflows/validate.yml/badge.svg)](https://github.com/Ai-assistant-KIRA/n8n-ai-linkedin-poster/actions/workflows/validate.yml)
+[![Release](https://img.shields.io/github/v/release/Ai-assistant-KIRA/n8n-ai-linkedin-poster)](https://github.com/Ai-assistant-KIRA/n8n-ai-linkedin-poster/releases)
 
 **Keywords:** n8n workflow LinkedIn · AI generated LinkedIn posts · n8n webhook Claude Cursor Devin · automate LinkedIn posting with AI images · social media automation open source
 
@@ -33,11 +35,20 @@ Get from zero to preview in under 10 minutes:
 
 4. **Set your Person ID** — Get your OpenID `sub` from `/v2/userinfo` and add `LINKEDIN_PERSON_ID` to `docker-compose.yml` ([guide](docs/setup.md#get-your-linkedin-person-urn))
 
-5. **Preview your first post**
+5. **Set webhook secret** (production) — add `WEBHOOK_SECRET` to `.env` / `docker-compose.yml`
+
+6. **Preview your first post**
    ```bash
    curl -X POST http://localhost:5678/webhook/linkedin-ai-post \
      -H "Content-Type: application/json" \
+     -H "X-Webhook-Secret: your-secret" \
      -d '{"topic": "How AI agents transform automation workflows", "dry_run": true}'
+   ```
+
+7. **Validate & smoke test**
+   ```bash
+   python scripts/validate-workflows.py
+   ./scripts/smoke-test.sh   # requires active n8n workflow
    ```
 
 Set `"dry_run": false` when you're ready to publish. Full guide → [docs/setup.md](docs/setup.md)
@@ -54,7 +65,9 @@ Set `"dry_run": false` when you're ready to publish. Full guide → [docs/setup.
 - 🔌 **Provider-agnostic** — Swap OpenAI for Anthropic, Azure, Replicate, or local models
 - 🐳 **Self-hostable** — Docker Compose included; works on n8n Cloud too
 - 📚 **Battle-tested docs** — Setup, config, integrations, and troubleshooting guides
-- 🔓 **100% open source** — MIT licensed, no vendor lock-in, no personal data baked in
+- 🔒 **Webhook auth** — `WEBHOOK_SECRET` + `X-Webhook-Secret` header for production
+- 🧪 **CI validated** — GitHub Actions checks workflow JSON on every push
+- 🔓 **100% open source** — MIT licensed, no vendor lock-in, no credentials in repo
 
 ---
 
@@ -96,7 +109,7 @@ These are **real posts** published with this workflow. Images and links below ar
 | Future of Work | ![Example 3](assets/example-post-3.jpg) | [View post](https://www.linkedin.com/feed/update/urn:li:share:7473857809357443073/) | Open-to-work + operator philosophy; high comment rate |
 | Industry Insights | ![Example 4](assets/example-post-4.jpg) | [View post](https://www.linkedin.com/feed/update/urn:li:share:7473857056161292288/) | Data-visual creative + diagnose-before-spend hook |
 
-Full post index → [examples/published-posts.json](examples/published-posts.json) (12 live URLs)
+Full post index → [examples/maintainer-posts.json](examples/maintainer-posts.json) (12 live URLs)
 
 > Fork users: replace these with your own posts after publishing, or [submit examples via PR](CONTRIBUTING.md#submitting-example-post-screenshots).
 
@@ -174,6 +187,8 @@ POST /webhook/linkedin-ai-post
 | [Usage](docs/usage.md) | Webhook schema, preview/publish flow, scheduling |
 | [Troubleshooting](docs/troubleshooting.md) | 401/403/422 fixes, image upload, Person ID |
 | [Contributing](CONTRIBUTING.md) | PR guidelines, example submissions |
+| [Security](SECURITY.md) | Webhook auth, credential hygiene, vulnerability reporting |
+| [Changelog](CHANGELOG.md) | Release history |
 
 ---
 
@@ -200,7 +215,13 @@ n8n-ai-linkedin-poster/
 │       └── general-ai-assistants.md
 ├── assets/
 ├── examples/
-│   └── webhook-payloads.json
+│   ├── webhook-payloads.json
+│   ├── webhook-payload.schema.json
+│   └── maintainer-posts.json
+├── scripts/
+│   ├── validate-workflows.py
+│   ├── smoke-test.sh
+│   └── smoke-test.ps1
 ├── prompts/
 │   └── linkedin-content-system-prompt.md
 ├── skills/
@@ -258,11 +279,15 @@ Stay well under ~150 posts/day for personal profiles. Add queuing for high-volum
 
 ## Roadmap
 
+- [x] AI assistant skill + Cursor rule
+- [x] Webhook authentication (`WEBHOOK_SECRET`)
+- [x] CI validation + smoke test scripts
+- [x] `image_base64` support + caption-only preview
 - [ ] Company Page posting support
 - [ ] Built-in scheduling queue (n8n Data Store)
 - [ ] Carousel / multi-image posts
 - [ ] Slack/Discord notification on publish
-- [ ] Pre-built Claude Project + Cursor rule templates in repo
+- [ ] n8n.io community workflow listing
 - [ ] Video thumbnail + document post support
 - [ ] Community prompt pack (vertical-specific templates)
 

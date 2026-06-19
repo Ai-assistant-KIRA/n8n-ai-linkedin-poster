@@ -19,7 +19,8 @@ Thank you for helping make AI-powered LinkedIn automation accessible to everyone
    ```
 3. Import `workflows/linkedin-ai-poster.json` in the n8n UI
 4. Configure credentials (see [docs/setup.md](docs/setup.md))
-5. Test with `dry_run: true` before any live publish
+5. Run `python scripts/validate-workflows.py` — must pass
+6. Test with `dry_run: true` before any live publish
 
 ## Pull Request Guidelines
 

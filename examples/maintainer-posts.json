@@ -1,5 +1,6 @@
 {
-  "description": "Live posts published with this workflow (maintainer examples). Fork users will publish to their own profiles.",
+  "description": "Live posts published by the project maintainer using this workflow. Fork users publish to their own profiles with their own credentials.",
+  "note": "These are credibility examples only — not required for your fork.",
   "profile": "https://www.linkedin.com/in/reda-alaarabi-b47602359/",
   "posts": [
     {

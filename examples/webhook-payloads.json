@@ -1,6 +1,12 @@
 {
   "description": "Example webhook payloads for POST /webhook/linkedin-ai-post. Copy any object as the request body.",
   "endpoint": "POST http://localhost:5678/webhook/linkedin-ai-post",
+  "auth": {
+    "header": "X-Webhook-Secret",
+    "env": "WEBHOOK_SECRET",
+    "note": "Required when WEBHOOK_SECRET is set in n8n environment"
+  },
+  "schema": "examples/webhook-payload.schema.json",
   "examples": [
     {
       "name": "topic_only_full_ai",
@@ -57,6 +63,34 @@
       "description": "Smallest valid payload — AI fills in the rest.",
       "payload": {
         "topic": "Industry insights on B2B marketing automation trends"
+      }
+    },
+    {
+      "name": "caption_with_base64",
+      "description": "Provide base64 image data (JPEG/PNG). Supports data URI prefix.",
+      "payload": {
+        "caption": "Sharing a visual I created for our automation stack overview.\n\n#Automation #n8n",
+        "image_base64": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ...",
+        "dry_run": true
+      }
+    },
+    {
+      "name": "generate_only_no_publish",
+      "description": "Generate caption + image but do not post (publish: false).",
+      "payload": {
+        "topic": "Weekly automation tip: preview before you publish",
+        "publish": false,
+        "generate_image": true,
+        "dry_run": false
+      }
+    },
+    {
+      "name": "caption_only_preview",
+      "description": "Fast caption preview — skips AI image generation to save API cost.",
+      "payload": {
+        "topic": "Why dry_run saves money on DALL-E calls",
+        "tone": "conversational",
+        "dry_run": true
       }
     }
   ],

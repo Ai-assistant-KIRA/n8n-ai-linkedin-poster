@@ -3,42 +3,35 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## AI LinkedIn Poster\n\n**Webhook:** `POST /webhook/linkedin-ai-post`\n\n**Before first run:**\n1. Set env vars (see Configuration node)\n2. Assign OpenAI + LinkedIn OAuth credentials\n3. Import `linkedin-ai-poster-errors.json` → link as Error Workflow (optional)\n\n**Docs:** https://github.com/Ai-assistant-KIRA/n8n-ai-linkedin-poster",
-        "height": 280,
+        "content": "## AI LinkedIn Poster v1.0\n\n`POST /webhook/linkedin-ai-post`\n\n1. Set env vars in **Configuration**\n2. Assign OpenAI + LinkedIn OAuth credentials\n3. Set `WEBHOOK_SECRET` for production\n4. Import `linkedin-ai-poster-errors.json` (optional)\n\nDocs: https://github.com/Ai-assistant-KIRA/n8n-ai-linkedin-poster",
+        "height": 300,
         "width": 400,
         "color": 4
       },
-      "id": "sticky-note-main",
+      "id": "sticky-main",
       "name": "Workflow Notes",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-200, 80]
+      "position": [
+        -200,
+        80
+      ]
     },
     {
       "parameters": {
-        "content": "## Configuration\n\nSet these **environment variables** (docker-compose / .env):\n\n| Variable | Example | Required |\n|----------|---------|----------|\n| `LINKEDIN_PERSON_ID` | OpenID `sub` | ✅ |\n| `LINKEDIN_API_VERSION` | `202502` | optional |\n\n**Credentials in n8n UI:**\n- OpenAI API → AI Generate Caption + Image\n- LinkedIn OAuth2 → Init Upload + Create Post\n\nGet Person ID: `GET /v2/userinfo` → `sub` field",
-        "height": 340,
-        "width": 360,
+        "content": "## Env vars\n| Variable | Required |\n|----------|----------|\n| `LINKEDIN_PERSON_ID` | \u2705 |\n| `WEBHOOK_SECRET` | prod \u2705 |\n| `LINKEDIN_API_VERSION` | optional (202502) |\n\n**Credentials:** OpenAI API, LinkedIn OAuth2",
+        "height": 280,
+        "width": 340,
         "color": 5
       },
-      "id": "sticky-note-config",
+      "id": "sticky-config",
       "name": "Configuration Notes",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [300, 80]
-    },
-    {
-      "parameters": {
-        "content": "## Image Upload\n\nContent-Type is **auto-detected** from binary mimeType / file extension.\n\nLinkedIn accepts **JPEG** and **PNG** only.\n\nIf you get `image/webp` or `image/gif`, add a conversion step before upload or force JPEG in **Prepare LinkedIn Payload**.",
-        "height": 200,
-        "width": 320,
-        "color": 6
-      },
-      "id": "sticky-note-image",
-      "name": "Image Format Notes",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [2100, 80]
+      "position": [
+        300,
+        60
+      ]
     },
     {
       "parameters": {
@@ -47,14 +40,17 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "webhook-trigger",
+      "id": "webhook",
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [240, 400],
+      "position": [
+        240,
+        400
+      ],
       "webhookId": "linkedin-ai-post",
       "notesInFlow": true,
-      "notes": "Entry point for AI assistants. See examples/webhook-payloads.json"
+      "notes": "Pass X-Webhook-Secret header when WEBHOOK_SECRET is set."
     },
     {
       "parameters": {
@@ -75,6 +71,12 @@
               "type": "string"
             },
             {
+              "id": "webhookSecret",
+              "name": "webhookSecret",
+              "value": "={{ $env.WEBHOOK_SECRET || '' }}",
+              "type": "string"
+            },
+            {
               "id": "httpMaxRetries",
               "name": "httpMaxRetries",
               "value": 3,
@@ -88,24 +90,28 @@
       "name": "Configuration",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [400, 400],
-      "notesInFlow": true,
-      "notes": "Set LINKEDIN_PERSON_ID + LINKEDIN_API_VERSION in env. Assign credentials in downstream nodes."
+      "position": [
+        400,
+        400
+      ],
+      "notesInFlow": true
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst config = $('Configuration').first().json;\n\nconst topic = (body.topic || '').trim();\nconst caption = (body.caption || body.text || '').trim();\nconst imagePrompt = (body.image_prompt || body.imagePrompt || '').trim();\nconst imageUrl = (body.image_url || body.imageUrl || '').trim();\nconst tone = (body.tone || 'professional').trim();\nconst hashtags = Array.isArray(body.hashtags) ? body.hashtags : [];\nconst dryRun = Boolean(body.dry_run ?? body.dryRun ?? false);\nconst publish = body.publish !== false;\n\nconst needsCaption = !caption && (topic || body.generate_caption);\nconst needsImage = !imageUrl && !body.image_base64 && (imagePrompt || topic || body.generate_image);\n\nreturn [{\n  json: {\n    topic,\n    caption,\n    imagePrompt: imagePrompt || (topic ? `Professional LinkedIn infographic about: ${topic}. Clean, modern, high-contrast, no text overlays.` : ''),\n    imageUrl,\n    imageBase64: body.image_base64 || null,\n    tone,\n    hashtags,\n    dryRun,\n    publish,\n    needsCaption,\n    needsImage,\n    personId: config.personId,\n    linkedinApiVersion: config.linkedinApiVersion,\n    httpMaxRetries: config.httpMaxRetries,\n    mediaTitle: (body.media_title || body.mediaTitle || topic || 'AI Generated Post').slice(0, 200),\n    visibility: body.visibility || 'PUBLIC'\n  }\n}];"
+        "jsCode": "const raw = $input.first().json;\nconst body = raw.body ?? raw;\nconst headers = raw.headers || {};\nconst config = $('Configuration').first().json;\n\nconst topic = (body.topic || '').trim();\nconst caption = (body.caption || body.text || '').trim();\nconst imagePrompt = (body.image_prompt || body.imagePrompt || '').trim();\nconst imageUrl = (body.image_url || body.imageUrl || '').trim();\nconst imageBase64 = body.image_base64 || body.imageBase64 || null;\nconst tone = (body.tone || 'professional').trim();\nconst hashtags = Array.isArray(body.hashtags) ? body.hashtags : [];\nconst dryRun = Boolean(body.dry_run ?? body.dryRun ?? false);\nconst publish = body.publish !== false;\nconst forceImage = Boolean(body.generate_image ?? body.generateImage ?? false);\n\nconst secret = (config.webhookSecret || '').trim();\nif (secret && secret !== 'DISABLED') {\n  const provided = (\n    headers['x-webhook-secret'] ||\n    headers['X-Webhook-Secret'] ||\n    body.webhook_secret ||\n    body.webhookSecret ||\n    ''\n  ).trim();\n  if (provided !== secret) {\n    return [{\n      json: {\n        unauthorized: true,\n        success: false,\n        error: 'Invalid or missing X-Webhook-Secret header',\n        hint: 'Set WEBHOOK_SECRET in env and pass header X-Webhook-Secret on every request.',\n      },\n    }];\n  }\n}\n\nconst hasImageUrl = !!imageUrl;\nconst hasImageBase64 = !!imageBase64;\nconst skipAiImage = dryRun && !forceImage;\nconst needsAiImage = !hasImageUrl && !hasImageBase64 && !skipAiImage && (imagePrompt || topic || forceImage);\nconst needsCaption = !caption && (topic || body.generate_caption);\nconst shouldPost = !dryRun && publish;\nconst captionOnlyPreview = dryRun && !hasImageUrl && !hasImageBase64 && !needsAiImage;\n\nreturn [{\n  json: {\n    topic,\n    caption,\n    imagePrompt: imagePrompt || (topic ? `Professional LinkedIn infographic about: ${topic}. Clean, modern, high-contrast, no text overlays.` : ''),\n    imageUrl,\n    imageBase64,\n    tone,\n    hashtags,\n    dryRun,\n    publish,\n    shouldPost,\n    forceImage,\n    needsCaption,\n    hasImageUrl,\n    hasImageBase64,\n    needsAiImage,\n    captionOnlyPreview,\n    personId: config.personId,\n    linkedinApiVersion: config.linkedinApiVersion,\n    httpMaxRetries: config.httpMaxRetries,\n    mediaTitle: (body.media_title || body.mediaTitle || topic || 'AI Generated Post').slice(0, 200),\n    visibility: body.visibility || 'PUBLIC',\n  },\n}];"
       },
-      "id": "parse-input",
+      "id": "parse",
       "name": "Parse Webhook Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [580, 400],
+      "position": [
+        580,
+        400
+      ],
       "onError": "continueErrorOutput",
-      "notesInFlow": true,
-      "notes": "Normalizes webhook payload. Supports topic-only, full caption, image URL/base64, or hybrid."
+      "notesInFlow": true
     },
     {
       "parameters": {
@@ -117,7 +123,39 @@
           },
           "conditions": [
             {
-              "id": "needs-caption",
+              "id": "unauth",
+              "leftValue": "={{ $json.unauthorized }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-unauthorized",
+      "name": "Unauthorized?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        760,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c",
               "leftValue": "={{ $json.needsCaption }}",
               "rightValue": true,
               "operator": {
@@ -134,7 +172,10 @@
       "name": "Needs Caption?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [780, 400]
+      "position": [
+        960,
+        400
+      ]
     },
     {
       "parameters": {
@@ -145,11 +186,11 @@
           "messages": [
             {
               "role": "system",
-              "content": "You write high-performing LinkedIn posts. Output ONLY the post text — no titles, no markdown fences. Use short paragraphs, 1-2 emojis max, 3-5 relevant hashtags at the end. Match the requested tone."
+              "content": "You write high-performing LinkedIn posts. Output ONLY the post text \u2014 no titles, no markdown fences. Use short paragraphs, 1-2 emojis max, 3-5 relevant hashtags at the end."
             },
             {
               "role": "user",
-              "content": "=Write a LinkedIn post.\n\nTopic: {{ $json.topic || 'automation and AI productivity' }}\nTone: {{ $json.tone }}\nExtra hashtags to include: {{ $json.hashtags.join(' ') }}\n\nKeep under 1300 characters. Start with a strong hook."
+              "content": "=Write a LinkedIn post.\n\nTopic: {{ $json.topic || 'automation and AI productivity' }}\nTone: {{ $json.tone }}\nExtra hashtags: {{ $json.hashtags.join(' ') }}\n\nKeep under 1300 characters. Start with a strong hook."
             }
           ]
         },
@@ -162,41 +203,48 @@
       "name": "AI Generate Caption",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 1.8,
-      "position": [1000, 280],
+      "position": [
+        1180,
+        280
+      ],
       "onError": "continueErrorOutput",
       "credentials": {
         "openAiApi": {
           "id": "REPLACE_WITH_YOUR_OPENAI_CREDENTIAL_ID",
           "name": "OpenAI API"
         }
-      },
-      "notesInFlow": true,
-      "notes": "Swap for Anthropic, Azure OpenAI, or any LLM node."
+      }
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "const parsed = $('Parse Webhook Input').first().json;\nconst ai = $input.first().json;\nconst generated = ai.message?.content || ai.text || ai.output || '';\nif (!parsed.caption && !generated.trim()) {\n  throw new Error('AI caption generation returned empty text. Check OpenAI credential and quota.');\n}\nreturn [{\n  json: {\n    ...parsed,\n    caption: (parsed.caption || generated).trim(),\n    captionSource: parsed.caption ? 'provided' : 'ai-generated'\n  }\n}];"
+        "jsCode": "const parsed = $('Parse Webhook Input').first().json;\nconst ai = $input.first().json;\nconst generated = ai.message?.content || ai.text || ai.output || '';\nif (!parsed.caption && !generated.trim()) throw new Error('AI caption generation returned empty text.');\nreturn [{ json: { ...parsed, caption: (parsed.caption || generated).trim(), captionSource: parsed.caption ? 'provided' : 'ai-generated' } }];"
       },
       "id": "merge-caption",
       "name": "Merge Caption",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1220, 280],
+      "position": [
+        1400,
+        280
+      ],
       "onError": "continueErrorOutput"
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "const parsed = $input.first().json;\nreturn [{ json: { ...parsed, captionSource: 'provided' } }];"
+        "jsCode": "const p = $input.first().json; return [{ json: { ...p, captionSource: 'provided' } }];"
       },
       "id": "pass-caption",
       "name": "Use Provided Caption",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1000, 520]
+      "position": [
+        1180,
+        520
+      ]
     },
     {
       "parameters": {
@@ -204,11 +252,14 @@
         "combineBy": "combineAll",
         "options": {}
       },
-      "id": "merge-caption-branches",
+      "id": "merge-branches",
       "name": "Merge Caption Branches",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [1440, 400]
+      "position": [
+        1620,
+        400
+      ]
     },
     {
       "parameters": {
@@ -220,8 +271,8 @@
           },
           "conditions": [
             {
-              "id": "needs-image",
-              "leftValue": "={{ $json.needsImage }}",
+              "id": "b",
+              "leftValue": "={{ $json.hasImageBase64 }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -233,11 +284,118 @@
         },
         "options": {}
       },
-      "id": "if-needs-image",
-      "name": "Needs Image?",
+      "id": "if-base64",
+      "name": "Has Base64 Image?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1660, 400]
+      "position": [
+        1840,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const item = $input.first().json;\nconst raw = item.imageBase64 || '';\nconst dataUriMatch = raw.match(/^data:(image\\/[a-zA-Z0-9.+-]+);base64,(.+)$/);\nconst mimeType = dataUriMatch ? dataUriMatch[1] : 'image/jpeg';\nconst b64 = dataUriMatch ? dataUriMatch[2] : raw.replace(/^data:image\\/\\w+;base64,/, '');\nif (!b64) throw new Error('image_base64 is empty');\nconst ext = mimeType.includes('png') ? 'png' : 'jpg';\nreturn [{\n  json: { ...item, imageSource: 'base64' },\n  binary: {\n    data: {\n      data: b64,\n      mimeType,\n      fileName: `linkedin-post.${ext}`,\n    },\n  },\n}];"
+      },
+      "id": "decode-base64",
+      "name": "Decode Base64 Image",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2060,
+        280
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "u",
+              "leftValue": "={{ $json.hasImageUrl }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-url",
+      "name": "Has Image URL?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2060,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.imageUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "download-url",
+      "name": "Download Image URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2280,
+        400
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "a",
+              "leftValue": "={{ $json.needsAiImage }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-ai-image",
+      "name": "Needs AI Image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2280,
+        580
+      ]
     },
     {
       "parameters": {
@@ -253,16 +411,17 @@
       "name": "AI Generate Image",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 1.8,
-      "position": [1880, 280],
+      "position": [
+        2500,
+        500
+      ],
       "onError": "continueErrorOutput",
       "credentials": {
         "openAiApi": {
           "id": "REPLACE_WITH_YOUR_OPENAI_CREDENTIAL_ID",
           "name": "OpenAI API"
         }
-      },
-      "notesInFlow": true,
-      "notes": "DALL-E 3 returns PNG. Content-Type auto-detected on upload."
+      }
     },
     {
       "parameters": {
@@ -275,51 +434,18 @@
           }
         }
       },
-      "id": "download-ai-image",
+      "id": "download-ai",
       "name": "Download AI Image",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2100, 280],
+      "position": [
+        2720,
+        500
+      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000,
       "onError": "continueErrorOutput"
-    },
-    {
-      "parameters": {
-        "url": "={{ $json.imageUrl }}",
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "file"
-            }
-          }
-        }
-      },
-      "id": "download-url-image",
-      "name": "Download Image URL",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1880, 520],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
-      "onError": "continueErrorOutput"
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "language": "javaScript",
-        "jsCode": "const content = $('Merge Caption Branches').first().json;\nconst input = $input.first();\nconst binary = input.binary;\n\nif (!binary) {\n  throw new Error('No image binary available. Provide image_url, image_base64, or enable AI image generation.');\n}\n\nconst binaryKey = Object.keys(binary).find((k) => binary[k]?.data) || 'data';\nconst bin = binary[binaryKey];\nif (!bin?.data) {\n  throw new Error('Image binary is empty.');\n}\n\nlet imageContentType = bin.mimeType || 'application/octet-stream';\nconst fileName = bin.fileName || 'linkedin-post.jpg';\n\nif (!imageContentType || imageContentType === 'application/octet-stream') {\n  const ext = (fileName.split('.').pop() || 'jpg').toLowerCase();\n  const map = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' };\n  imageContentType = map[ext] || 'image/jpeg';\n}\n\nconst linkedinAccepted = ['image/jpeg', 'image/png'];\nconst imageFormatWarning = linkedinAccepted.includes(imageContentType)\n  ? null\n  : `LinkedIn accepts JPEG/PNG only. Detected ${imageContentType}. Add a conversion step or override to image/jpeg.`;\n\nconst personId = (content.personId || '').trim();\nif (!personId || personId === 'YOUR_PERSON_ID') {\n  throw new Error('Set LINKEDIN_PERSON_ID in docker-compose/.env or the Configuration node.');\n}\n\nreturn [{\n  json: {\n    ...content,\n    personUrn: `urn:li:person:${personId}`,\n    imageFileName: fileName,\n    imageContentType,\n    imageFormatWarning,\n    imageSource: content.imageUrl ? 'url' : 'ai-generated',\n    linkedinApiVersion: content.linkedinApiVersion || '202502',\n  },\n  binary: { data: bin },\n}];"
-      },
-      "id": "prepare-linkedin",
-      "name": "Prepare LinkedIn Payload",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [2320, 400],
-      "onError": "continueErrorOutput",
-      "notesInFlow": true,
-      "notes": "Auto-detects image Content-Type from mimeType/extension. See Image Format Notes sticky."
     },
     {
       "parameters": {
@@ -331,8 +457,8 @@
           },
           "conditions": [
             {
-              "id": "dry-run",
-              "leftValue": "={{ $json.dryRun }}",
+              "id": "co",
+              "leftValue": "={{ $json.captionOnlyPreview }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -344,16 +470,84 @@
         },
         "options": {}
       },
-      "id": "if-dry-run",
-      "name": "Dry Run?",
+      "id": "if-caption-only",
+      "name": "Caption Only Preview?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2540, 400]
+      "position": [
+        2500,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const item = $input.first().json;\nif (!item.caption && !item.topic) {\n  throw new Error('Preview requires a topic or caption.');\n}\nreturn [{\n  json: {\n    success: true,\n    dryRun: true,\n    captionOnly: true,\n    caption: item.caption || `(caption will be AI-generated from topic: ${item.topic})`,\n    captionSource: item.captionSource || (item.caption ? 'provided' : 'ai-generated'),\n    imageSource: null,\n    imageSkipped: true,\n    mediaTitle: item.mediaTitle,\n    linkedinApiVersion: item.linkedinApiVersion,\n    message: 'Caption-only preview \u2014 set generate_image: true to preview with AI image, or dry_run: false to publish.',\n  },\n}];"
+      },
+      "id": "caption-preview",
+      "name": "Build Caption Preview",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2720,
+        820
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const content = $('Merge Caption Branches').first().json;\nconst input = $input.first();\nconst binary = input.binary;\n\nif (!binary) {\n  throw new Error('No image binary available. Provide image_url, image_base64, or enable AI image generation.');\n}\n\nconst binaryKey = Object.keys(binary).find((k) => binary[k]?.data) || 'data';\nconst bin = binary[binaryKey];\nif (!bin?.data) throw new Error('Image binary is empty.');\n\nlet imageContentType = bin.mimeType || 'application/octet-stream';\nconst fileName = bin.fileName || 'linkedin-post.jpg';\nif (!imageContentType || imageContentType === 'application/octet-stream') {\n  const ext = (fileName.split('.').pop() || 'jpg').toLowerCase();\n  const map = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' };\n  imageContentType = map[ext] || 'image/jpeg';\n}\n\nconst linkedinAccepted = ['image/jpeg', 'image/png'];\nconst imageFormatWarning = linkedinAccepted.includes(imageContentType)\n  ? null\n  : `LinkedIn accepts JPEG/PNG only. Detected ${imageContentType}. Add a conversion step or override to image/jpeg.`;\n\nconst personId = (content.personId || '').trim();\nif (!personId || personId === 'YOUR_PERSON_ID') {\n  throw new Error('Set LINKEDIN_PERSON_ID in docker-compose/.env or the Configuration node.');\n}\n\nconst imageSource = content.imageSource || (content.imageUrl ? 'url' : content.imageBase64 ? 'base64' : 'ai-generated');\n\nreturn [{\n  json: {\n    ...content,\n    personUrn: `urn:li:person:${personId}`,\n    imageFileName: fileName,\n    imageContentType,\n    imageFormatWarning,\n    imageSource,\n    linkedinApiVersion: content.linkedinApiVersion || '202502',\n  },\n  binary: { data: bin },\n}];"
+      },
+      "id": "prepare",
+      "name": "Prepare LinkedIn Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2940,
+        400
+      ],
+      "onError": "continueErrorOutput",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "sp",
+              "leftValue": "={{ $json.shouldPost }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-should-post",
+      "name": "Should Post?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3160,
+        400
+      ]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { success: true, dryRun: true, caption: $json.caption, captionSource: $json.captionSource, imageSource: $json.imageSource, imageContentType: $json.imageContentType, imageFormatWarning: $json.imageFormatWarning, mediaTitle: $json.mediaTitle, linkedinApiVersion: $json.linkedinApiVersion, message: 'Preview only — set dry_run: false to publish.' } }}",
+        "responseBody": "={{ $json.captionOnly ? $json : { success: true, dryRun: true, caption: $json.caption, captionSource: $json.captionSource, imageSource: $json.imageSource, imageContentType: $json.imageContentType, imageFormatWarning: $json.imageFormatWarning, mediaTitle: $json.mediaTitle, linkedinApiVersion: $json.linkedinApiVersion, message: 'Preview only \u2014 set dry_run: false and publish: true to post.' } }}",
         "options": {
           "responseCode": 200
         }
@@ -362,7 +556,10 @@
       "name": "Respond Preview",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [2760, 280]
+      "position": [
+        3380,
+        280
+      ]
     },
     {
       "parameters": {
@@ -388,11 +585,14 @@
         "jsonBody": "={{ JSON.stringify({ initializeUploadRequest: { owner: $json.personUrn } }) }}",
         "options": {}
       },
-      "id": "linkedin-init-upload",
+      "id": "linkedin-init",
       "name": "LinkedIn Init Upload",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2760, 520],
+      "position": [
+        3380,
+        520
+      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 3000,
@@ -402,21 +602,22 @@
           "id": "REPLACE_WITH_YOUR_LINKEDIN_CREDENTIAL_ID",
           "name": "LinkedIn OAuth2"
         }
-      },
-      "notesInFlow": true,
-      "notes": "LinkedIn-Version from LINKEDIN_API_VERSION env (default 202502). Retries 3x on failure."
+      }
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "const prepared = $('Prepare LinkedIn Payload').first();\nconst init = $input.first();\nconst value = init.json.value || init.json.body?.value || init.json;\nconst uploadUrl = value?.uploadUrl;\nconst imageUrn = value?.image;\n\nif (!uploadUrl || !imageUrn) {\n  throw new Error(`LinkedIn init upload failed: ${JSON.stringify(init.json).slice(0, 500)}`);\n}\n\nreturn [{\n  json: {\n    ...prepared.json,\n    uploadUrl,\n    imageUrn,\n  },\n  binary: prepared.binary,\n}];"
+        "jsCode": "const prepared = $('Prepare LinkedIn Payload').first();\nconst init = $input.first();\nconst value = init.json.value || init.json.body?.value || init.json;\nif (!value?.uploadUrl || !value?.image) throw new Error(`LinkedIn init upload failed: ${JSON.stringify(init.json).slice(0, 500)}`);\nreturn [{ json: { ...prepared.json, uploadUrl: value.uploadUrl, imageUrn: value.image }, binary: prepared.binary }];"
       },
-      "id": "merge-upload-data",
+      "id": "merge-upload",
       "name": "Merge Upload Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2980, 520],
+      "position": [
+        3600,
+        520
+      ],
       "onError": "continueErrorOutput"
     },
     {
@@ -437,17 +638,18 @@
         "inputDataFieldName": "data",
         "options": {}
       },
-      "id": "linkedin-upload-image",
+      "id": "linkedin-upload",
       "name": "LinkedIn Upload Image",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3200, 520],
+      "position": [
+        3820,
+        520
+      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 3000,
-      "onError": "continueErrorOutput",
-      "notesInFlow": true,
-      "notes": "Content-Type is dynamic (image/jpeg or image/png). No OAuth on PUT — signed URL only."
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -479,11 +681,14 @@
           }
         }
       },
-      "id": "linkedin-create-post",
+      "id": "linkedin-post",
       "name": "LinkedIn Create Post",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3420, 520],
+      "position": [
+        4040,
+        520
+      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 3000,
@@ -499,13 +704,16 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "const merged = $('Merge Upload Data').first().json;\nconst post = $input.first();\nconst headers = post.json.headers || {};\nconst postUrn = headers['x-restli-id'] || headers['X-Restli-Id'] || null;\n\nif (!postUrn) {\n  throw new Error(`LinkedIn create post succeeded but no post URN in response headers: ${JSON.stringify(post.json).slice(0, 500)}`);\n}\n\nreturn [{\n  json: {\n    success: true,\n    dryRun: false,\n    postUrn,\n    shareUrl: `https://www.linkedin.com/feed/update/${encodeURIComponent(postUrn)}/`,\n    caption: merged.caption,\n    captionSource: merged.captionSource,\n    imageSource: merged.imageSource,\n    imageContentType: merged.imageContentType,\n    mediaTitle: merged.mediaTitle,\n    linkedinApiVersion: merged.linkedinApiVersion,\n    api: `linkedin-rest-v${merged.linkedinApiVersion || '202502'}`,\n  },\n}];"
+        "jsCode": "const merged = $('Merge Upload Data').first().json;\nconst post = $input.first();\nconst headers = post.json.headers || {};\nconst postUrn = headers['x-restli-id'] || headers['X-Restli-Id'];\nif (!postUrn) throw new Error('LinkedIn create post missing x-restli-id header');\nreturn [{ json: { success: true, dryRun: false, postUrn, shareUrl: `https://www.linkedin.com/feed/update/${encodeURIComponent(postUrn)}/`, caption: merged.caption, captionSource: merged.captionSource, imageSource: merged.imageSource, imageContentType: merged.imageContentType, mediaTitle: merged.mediaTitle, linkedinApiVersion: merged.linkedinApiVersion, api: `linkedin-rest-v${merged.linkedinApiVersion || '202502'}` } }];"
       },
-      "id": "finalize-result",
+      "id": "finalize",
       "name": "Finalize Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3640, 520],
+      "position": [
+        4260,
+        520
+      ],
       "onError": "continueErrorOutput"
     },
     {
@@ -520,19 +728,57 @@
       "name": "Respond Success",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [3860, 520]
+      "position": [
+        4480,
+        520
+      ]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "const item = $input.first();\nconst j = item.json || {};\nconst executionError = j.error || j;\nconst message =\n  executionError.message ||\n  executionError.description ||\n  j.message ||\n  (typeof executionError === 'string' ? executionError : null) ||\n  'Workflow execution failed';\nconst failedNode =\n  j.$node?.name ||\n  j.node ||\n  item.pairedItem?.source?.previousNode ||\n  'unknown';\nreturn [{\n  json: {\n    success: false,\n    error: String(message).slice(0, 1000),\n    failedNode: String(failedNode),\n    hint: 'See docs/troubleshooting.md — verify LINKEDIN_PERSON_ID, OAuth credentials, and LINKEDIN_API_VERSION.',\n    docs: 'https://github.com/Ai-assistant-KIRA/n8n-ai-linkedin-poster/blob/main/docs/troubleshooting.md',\n  },\n}];"
+        "jsCode": "const item = $input.first();\nconst j = item.json || {};\nif (j.unauthorized) {\n  return [{ json: { ...j, statusCode: 401 } }];\n}\nconst executionError = j.error || j;\nconst message =\n  executionError.message ||\n  executionError.description ||\n  j.message ||\n  (typeof executionError === 'string' ? executionError : null) ||\n  'Workflow execution failed';\nreturn [{\n  json: {\n    success: false,\n    error: String(message).slice(0, 1000),\n    failedNode: String(j.$node?.name || j.node || 'unknown'),\n    hint: 'See docs/troubleshooting.md \u2014 verify LINKEDIN_PERSON_ID, OAuth, WEBHOOK_SECRET, LINKEDIN_API_VERSION.',\n    docs: 'https://github.com/Ai-assistant-KIRA/n8n-ai-linkedin-poster/blob/main/docs/troubleshooting.md',\n    statusCode: j.statusCode || 500,\n  },\n}];"
       },
       "id": "format-error",
       "name": "Format Error Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3640, 720]
+      "position": [
+        4260,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "e401",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 401,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-error-code",
+      "name": "Error Status?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        4480,
+        720
+      ]
     },
     {
       "parameters": {
@@ -546,7 +792,43 @@
       "name": "Respond Error",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [3860, 720]
+      "position": [
+        4700,
+        820
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "respond-unauthorized",
+      "name": "Respond Unauthorized",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        4700,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "throw new Error('Image required to publish. Provide image_url, image_base64, or enable AI image generation (generate_image: true).');"
+      },
+      "id": "format-missing-image",
+      "name": "Missing Image Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2720,
+        700
+      ],
+      "onError": "continueErrorOutput"
     }
   ],
   "connections": {
@@ -576,7 +858,7 @@
       "main": [
         [
           {
-            "node": "Needs Caption?",
+            "node": "Unauthorized?",
             "type": "main",
             "index": 0
           }
@@ -584,6 +866,24 @@
         [
           {
             "node": "Format Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unauthorized?": {
+      "main": [
+        [
+          {
+            "node": "Format Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Needs Caption?",
             "type": "main",
             "index": 0
           }
@@ -659,14 +959,86 @@
       "main": [
         [
           {
-            "node": "Needs Image?",
+            "node": "Has Base64 Image?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Needs Image?": {
+    "Has Base64 Image?": {
+      "main": [
+        [
+          {
+            "node": "Decode Base64 Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has Image URL?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decode Base64 Image": {
+      "main": [
+        [
+          {
+            "node": "Prepare LinkedIn Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Image URL?": {
+      "main": [
+        [
+          {
+            "node": "Download Image URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Needs AI Image?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Image URL": {
+      "main": [
+        [
+          {
+            "node": "Prepare LinkedIn Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs AI Image?": {
       "main": [
         [
           {
@@ -677,7 +1049,7 @@
         ],
         [
           {
-            "node": "Download Image URL",
+            "node": "Caption Only Preview?",
             "type": "main",
             "index": 0
           }
@@ -720,15 +1092,45 @@
         ]
       ]
     },
-    "Download Image URL": {
+    "Caption Only Preview?": {
       "main": [
         [
           {
-            "node": "Prepare LinkedIn Payload",
+            "node": "Build Caption Preview",
             "type": "main",
             "index": 0
           }
         ],
+        [
+          {
+            "node": "Missing Image Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Caption Preview": {
+      "main": [
+        [
+          {
+            "node": "Respond Preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Missing Image Error": {
+      "main": [
+        [],
         [
           {
             "node": "Format Error Response",
@@ -742,7 +1144,7 @@
       "main": [
         [
           {
-            "node": "Dry Run?",
+            "node": "Should Post?",
             "type": "main",
             "index": 0
           }
@@ -756,18 +1158,18 @@
         ]
       ]
     },
-    "Dry Run?": {
+    "Should Post?": {
       "main": [
         [
           {
-            "node": "Respond Preview",
+            "node": "LinkedIn Init Upload",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "LinkedIn Init Upload",
+            "node": "Respond Preview",
             "type": "main",
             "index": 0
           }
@@ -868,6 +1270,24 @@
       "main": [
         [
           {
+            "node": "Error Status?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Status?": {
+      "main": [
+        [
+          {
+            "node": "Respond Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Respond Error",
             "type": "main",
             "index": 0
@@ -882,15 +1302,21 @@
     "callerPolicy": "workflowsFromSameOwner"
   },
   "active": false,
-  "versionId": "1.1.0",
+  "versionId": "1.2.0",
   "meta": {
     "templateCredsSetupCompleted": false,
     "instanceId": "n8n-ai-linkedin-poster"
   },
   "pinData": {},
   "tags": [
-    { "name": "linkedin" },
-    { "name": "ai" },
-    { "name": "social-media" }
+    {
+      "name": "linkedin"
+    },
+    {
+      "name": "ai"
+    },
+    {
+      "name": "social-media"
+    }
   ]
 }

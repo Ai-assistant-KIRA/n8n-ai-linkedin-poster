@@ -22,6 +22,7 @@ Publish native-image LinkedIn posts by POSTing JSON to an n8n webhook. The workf
 - **User brings own credentials** — LinkedIn Developer App + OAuth + OpenAI key configured in n8n. Never hardcode keys or Person IDs.
 - **One webhook call = one post** — do not re-trigger the same payload unless the user wants a duplicate.
 - **Configurable webhook URL** — read from env `N8N_WEBHOOK_URL` or ask the user. Default local: `http://localhost:5678/webhook/linkedin-ai-post`.
+- **Webhook auth** — when `WEBHOOK_SECRET` is set, pass header `X-Webhook-Secret` on every request.
 
 ## Prerequisites (user must complete once)
 
@@ -67,6 +68,7 @@ Modes — see [references/webhook-schema.md](references/webhook-schema.md):
 ```bash
 curl -s -X POST "${N8N_WEBHOOK_URL:-http://localhost:5678}/webhook/linkedin-ai-post" \
   -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: ${WEBHOOK_SECRET:-}" \
   -d '{
     "topic": "YOUR TOPIC",
     "tone": "insightful",
