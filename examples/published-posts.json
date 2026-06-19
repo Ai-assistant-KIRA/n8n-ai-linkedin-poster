@@ -1,0 +1,66 @@
+{
+  "description": "Live posts published with this workflow (maintainer examples). Fork users will publish to their own profiles.",
+  "profile": "https://www.linkedin.com/in/reda-alaarabi-b47602359/",
+  "posts": [
+    {
+      "postNumber": 1,
+      "theme": "Paid Social & Creative Ops",
+      "shareUrl": "https://www.linkedin.com/feed/update/urn:li:share:7473854840268460032/"
+    },
+    {
+      "postNumber": 2,
+      "theme": "Google Ads & Merchant Center",
+      "shareUrl": "https://www.linkedin.com/feed/update/urn:li:share:7473855165322866688/"
+    },
+    {
+      "postNumber": 3,
+      "theme": "Shopify Engineering & CRO",
+      "shareUrl": "https://www.linkedin.com/feed/update/urn:li:share:7473855499432701952/"
+    },
+    {
+      "postNumber": 4,
+      "theme": "eCommerce Ops & Automation (n8n)",
+      "shareUrl": "https://www.linkedin.com/feed/update/urn:li:share:7473856027965206528/"
+    },
+    {
+      "postNumber": 5,
+      "theme": "AI Support & Automation",
+      "shareUrl": "https://www.linkedin.com/feed/update/urn:li:share:7473856365413879809/"
+    },
+    {
+      "postNumber": 6,
+      "theme": "Technical SEO & Performance",
+      "shareUrl": "https://www.linkedin.com/feed/update/urn:li:share:7473856727466205186/"
+    },
+    {
+      "postNumber": 7,
+      "theme": "Retention & Lifecycle Marketing",
+      "shareUrl": "https://www.linkedin.com/feed/update/urn:li:share:7473856890398048256/"
+    },
+    {
+      "postNumber": 8,
+      "theme": "Growth Analysis & Reporting",
+      "shareUrl": "https://www.linkedin.com/feed/update/urn:li:share:7473857056161292288/"
+    },
+    {
+      "postNumber": 9,
+      "theme": "End-to-End DTC Delivery",
+      "shareUrl": "https://www.linkedin.com/feed/update/urn:li:share:7473857317420269568/"
+    },
+    {
+      "postNumber": 10,
+      "theme": "Shopify Liquid Portfolio",
+      "shareUrl": "https://www.linkedin.com/feed/update/urn:li:share:7473857465869275136/"
+    },
+    {
+      "postNumber": 11,
+      "theme": "WooCommerce & Custom Dev",
+      "shareUrl": "https://www.linkedin.com/feed/update/urn:li:share:7473857618332090369/"
+    },
+    {
+      "postNumber": 12,
+      "theme": "Full-Stack eCommerce Operator",
+      "shareUrl": "https://www.linkedin.com/feed/update/urn:li:share:7473857809357443073/"
+    }
+  ]
+}

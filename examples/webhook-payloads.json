@@ -1,0 +1,83 @@
+{
+  "description": "Example webhook payloads for POST /webhook/linkedin-ai-post. Copy any object as the request body.",
+  "endpoint": "POST http://localhost:5678/webhook/linkedin-ai-post",
+  "examples": [
+    {
+      "name": "topic_only_full_ai",
+      "description": "Let the workflow generate both caption and image from a topic. Best for AI assistant integrations.",
+      "payload": {
+        "topic": "How AI agents are transforming no-code automation in 2026",
+        "tone": "insightful",
+        "hashtags": ["#AI", "#Automation", "#NoCode"],
+        "dry_run": true
+      }
+    },
+    {
+      "name": "topic_publish",
+      "description": "Generate and publish immediately. Use after previewing with dry_run.",
+      "payload": {
+        "topic": "5 lessons I learned building production n8n workflows",
+        "tone": "professional",
+        "generate_image": true,
+        "dry_run": false,
+        "publish": true
+      }
+    },
+    {
+      "name": "full_caption_and_image_prompt",
+      "description": "Provide your own caption; workflow generates the image only.",
+      "payload": {
+        "caption": "The future of work isn't humans vs. AI — it's humans *with* AI.\n\nHere are 3 ways teams are shipping faster without burning out:\n\n→ Automate repetitive ops with n8n\n→ Use AI for first drafts, humans for judgment\n→ Measure outcomes, not hours\n\nWhat's your biggest automation win this quarter?\n\n#FutureOfWork #Productivity #AI",
+        "image_prompt": "Professional LinkedIn infographic: hybrid human-AI collaboration, clean blue and white design, abstract office setting, no text overlay, modern flat illustration",
+        "media_title": "Future of Work Insights",
+        "dry_run": true
+      }
+    },
+    {
+      "name": "caption_with_image_url",
+      "description": "Publish pre-generated content. Image must be publicly accessible JPEG/PNG.",
+      "payload": {
+        "caption": "Just shipped an open-source n8n workflow that posts AI-generated content to LinkedIn in one webhook call.\n\nFork it, customize it, automate your feed.\n\n#OpenSource #n8n #LinkedIn #Automation",
+        "image_url": "https://example.com/images/linkedin-post.jpg",
+        "media_title": "Open Source Automation",
+        "dry_run": false
+      }
+    },
+    {
+      "name": "preview_before_publish",
+      "description": "Always preview first. Returns caption metadata without hitting LinkedIn.",
+      "payload": {
+        "topic": "Why webhook-driven AI workflows beat manual social scheduling",
+        "tone": "conversational",
+        "dry_run": true
+      }
+    },
+    {
+      "name": "minimal",
+      "description": "Smallest valid payload — AI fills in the rest.",
+      "payload": {
+        "topic": "Industry insights on B2B marketing automation trends"
+      }
+    }
+  ],
+  "response_success": {
+    "success": true,
+    "dryRun": false,
+    "postUrn": "urn:li:share:7123456789012345678",
+    "shareUrl": "https://www.linkedin.com/feed/update/urn%3Ali%3Ashare%3A7123456789012345678/",
+    "caption": "Your generated or provided caption...",
+    "captionSource": "ai-generated",
+    "imageSource": "ai-generated",
+    "mediaTitle": "AI Generated Post",
+    "api": "linkedin-rest-v202502"
+  },
+  "response_preview": {
+    "success": true,
+    "dryRun": true,
+    "caption": "Preview caption text...",
+    "captionSource": "ai-generated",
+    "imageSource": "ai-generated",
+    "mediaTitle": "AI Generated Post",
+    "message": "Preview only — set dry_run: false to publish."
+  }
+}

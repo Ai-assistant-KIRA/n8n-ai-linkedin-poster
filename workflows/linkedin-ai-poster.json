@@ -1,0 +1,691 @@
+{
+  "name": "AI LinkedIn Poster",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## AI LinkedIn Poster\n\n**Webhook:** `POST /webhook/linkedin-ai-post`\n\nAccepts flexible JSON input from AI assistants. Generates caption + image (optional) and publishes to LinkedIn via REST API v202502.\n\n**Required env:** Set `LINKEDIN_PERSON_ID` in the Configuration node.\n\n**Credentials:** OpenAI API, LinkedIn OAuth2\n\nSee docs: https://github.com/Ai-assistant-KIRA/n8n-ai-linkedin-poster",
+        "height": 340,
+        "width": 420,
+        "color": 4
+      },
+      "id": "sticky-note-main",
+      "name": "Workflow Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-200, 80]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "linkedin-ai-post",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "webhookId": "linkedin-ai-post",
+      "notesInFlow": true,
+      "notes": "Entry point for AI assistants. Send topic, caption, image_prompt, or full content. See examples/webhook-payloads.json"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\n\nconst topic = (body.topic || '').trim();\nconst caption = (body.caption || body.text || '').trim();\nconst imagePrompt = (body.image_prompt || body.imagePrompt || '').trim();\nconst imageUrl = (body.image_url || body.imageUrl || '').trim();\nconst tone = (body.tone || 'professional').trim();\nconst hashtags = Array.isArray(body.hashtags) ? body.hashtags : [];\nconst dryRun = Boolean(body.dry_run ?? body.dryRun ?? false);\nconst publish = body.publish !== false;\n\nconst needsCaption = !caption && (topic || body.generate_caption);\nconst needsImage = !imageUrl && !body.image_base64 && (imagePrompt || topic || body.generate_image);\n\nreturn [{\n  json: {\n    topic,\n    caption,\n    imagePrompt: imagePrompt || (topic ? `Professional LinkedIn infographic about: ${topic}. Clean, modern, high-contrast, no text overlays.` : ''),\n    imageUrl,\n    imageBase64: body.image_base64 || null,\n    tone,\n    hashtags,\n    dryRun,\n    publish,\n    needsCaption,\n    needsImage,\n    personId: $env.LINKEDIN_PERSON_ID || 'YOUR_PERSON_ID',\n    mediaTitle: (body.media_title || body.mediaTitle || topic || 'AI Generated Post').slice(0, 200),\n    visibility: body.visibility || 'PUBLIC'\n  }\n}];"
+      },
+      "id": "parse-input",
+      "name": "Parse Webhook Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 400],
+      "notesInFlow": true,
+      "notes": "Normalizes webhook payload. Supports topic-only, full caption, image URL/base64, or hybrid."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "needs-caption",
+              "leftValue": "={{ $json.needsCaption }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-needs-caption",
+      "name": "Needs Caption?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "complete",
+        "chatModel": "gpt-4o-mini",
+        "prompt": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You write high-performing LinkedIn posts. Output ONLY the post text — no titles, no markdown fences. Use short paragraphs, 1-2 emojis max, 3-5 relevant hashtags at the end. Match the requested tone."
+            },
+            {
+              "role": "user",
+              "content": "=Write a LinkedIn post.\n\nTopic: {{ $json.topic || 'automation and AI productivity' }}\nTone: {{ $json.tone }}\nExtra hashtags to include: {{ $json.hashtags.join(' ') }}\n\nKeep under 1300 characters. Start with a strong hook."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 800
+        }
+      },
+      "id": "openai-caption",
+      "name": "AI Generate Caption",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [900, 280],
+      "credentials": {
+        "openAiApi": {
+          "id": "REPLACE_WITH_YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI API"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "Swap for Anthropic, Azure OpenAI, or any LLM node. Customize prompt in docs/configuration.md"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const parsed = $('Parse Webhook Input').first().json;\nconst ai = $input.first().json;\nconst generated = ai.message?.content || ai.text || ai.output || '';\n\nreturn [{\n  json: {\n    ...parsed,\n    caption: (parsed.caption || generated).trim(),\n    captionSource: parsed.caption ? 'provided' : 'ai-generated'\n  }\n}];"
+      },
+      "id": "merge-caption",
+      "name": "Merge Caption",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 280]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const parsed = $input.first().json;\nreturn [{ json: { ...parsed, captionSource: 'provided' } }];"
+      },
+      "id": "pass-caption",
+      "name": "Use Provided Caption",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 520]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-caption-branches",
+      "name": "Merge Caption Branches",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1340, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "needs-image",
+              "leftValue": "={{ $json.needsImage }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-needs-image",
+      "name": "Needs Image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1560, 400]
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "generate",
+        "prompt": "={{ $json.imagePrompt }}",
+        "options": {
+          "size": "1024x1024",
+          "style": "vivid"
+        }
+      },
+      "id": "openai-image",
+      "name": "AI Generate Image",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [1780, 280],
+      "credentials": {
+        "openAiApi": {
+          "id": "REPLACE_WITH_YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI API"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "DALL-E 3 by default. Replace with Flux, Stability, or Replicate HTTP node."
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.data[0].url || $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "download-ai-image",
+      "name": "Download AI Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 280]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.imageUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "download-url-image",
+      "name": "Download Image URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 520]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const content = $('Merge Caption Branches').first().json;\nconst binary = $input.first().binary;\n\nif (!binary || !binary.data) {\n  throw new Error('No image binary available. Provide image_url, image_base64, or enable AI image generation.');\n}\n\nconst personId = (content.personId || '').trim();\nif (!personId || personId === 'YOUR_PERSON_ID') {\n  throw new Error('Set LINKEDIN_PERSON_ID environment variable or update Configuration node.');\n}\n\nreturn [{\n  json: {\n    ...content,\n    personUrn: `urn:li:person:${personId}`,\n    imageFileName: binary.data.fileName || 'linkedin-post.jpg',\n    imageSource: content.imageUrl ? 'url' : 'ai-generated'\n  },\n  binary\n}];"
+      },
+      "id": "prepare-linkedin",
+      "name": "Prepare LinkedIn Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "dry-run",
+              "leftValue": "={{ $json.dryRun }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-dry-run",
+      "name": "Dry Run?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2440, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, dryRun: true, caption: $json.caption, captionSource: $json.captionSource, imageSource: $json.imageSource, mediaTitle: $json.mediaTitle, message: 'Preview only — set dry_run: false to publish.' } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-preview",
+      "name": "Respond Preview",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2660, 280]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linkedin.com/rest/images?action=initializeUpload",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "linkedInOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "LinkedIn-Version",
+              "value": "202502"
+            },
+            {
+              "name": "X-Restli-Protocol-Version",
+              "value": "2.0.0"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ initializeUploadRequest: { owner: $json.personUrn } }) }}",
+        "options": {}
+      },
+      "id": "linkedin-init-upload",
+      "name": "LinkedIn Init Upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2660, 520],
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_LINKEDIN_CREDENTIAL_ID",
+          "name": "LinkedIn OAuth2"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "Uses LinkedIn REST API — not the built-in LinkedIn node (avoids 403 on image posts)."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const prepared = $('Prepare LinkedIn Payload').first();\nconst init = $input.first();\nconst value = init.json.value || init.json.body?.value || init.json;\nconst uploadUrl = value?.uploadUrl;\nconst imageUrn = value?.image;\n\nif (!uploadUrl || !imageUrn) {\n  throw new Error(`LinkedIn init upload failed: ${JSON.stringify(init.json).slice(0, 500)}`);\n}\n\nreturn [{\n  json: {\n    ...prepared.json,\n    uploadUrl,\n    imageUrn\n  },\n  binary: prepared.binary\n}];"
+      },
+      "id": "merge-upload-data",
+      "name": "Merge Upload Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2880, 520]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $json.uploadUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "image/jpeg"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "linkedin-upload-image",
+      "name": "LinkedIn Upload Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3100, 520]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linkedin.com/rest/posts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "linkedInOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "LinkedIn-Version",
+              "value": "202502"
+            },
+            {
+              "name": "X-Restli-Protocol-Version",
+              "value": "2.0.0"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ author: $('Merge Upload Data').first().json.personUrn, commentary: $('Merge Upload Data').first().json.caption, visibility: $('Merge Upload Data').first().json.visibility, distribution: { feedDistribution: 'MAIN_FEED', thirdPartyDistributionChannels: [] }, lifecycleState: 'PUBLISHED', content: { media: { title: $('Merge Upload Data').first().json.mediaTitle, id: $('Merge Upload Data').first().json.imageUrn } } }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "linkedin-create-post",
+      "name": "LinkedIn Create Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3320, 520],
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_LINKEDIN_CREDENTIAL_ID",
+          "name": "LinkedIn OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const merged = $('Merge Upload Data').first().json;\nconst post = $input.first();\nconst headers = post.json.headers || {};\nconst postUrn = headers['x-restli-id'] || headers['X-Restli-Id'] || null;\n\nreturn [{\n  json: {\n    success: true,\n    dryRun: false,\n    postUrn,\n    shareUrl: postUrn ? `https://www.linkedin.com/feed/update/${encodeURIComponent(postUrn)}/` : null,\n    caption: merged.caption,\n    captionSource: merged.captionSource,\n    imageSource: merged.imageSource,\n    mediaTitle: merged.mediaTitle,\n    api: 'linkedin-rest-v202502'\n  }\n}];"
+      },
+      "id": "finalize-result",
+      "name": "Finalize Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3540, 520]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3760, 520]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, error: $json.error?.message || $json.message || 'Workflow error', hint: 'See docs/troubleshooting.md' } }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3760, 720]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Webhook Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Webhook Input": {
+      "main": [
+        [
+          {
+            "node": "Needs Caption?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Caption?": {
+      "main": [
+        [
+          {
+            "node": "AI Generate Caption",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Use Provided Caption",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Generate Caption": {
+      "main": [
+        [
+          {
+            "node": "Merge Caption",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Caption": {
+      "main": [
+        [
+          {
+            "node": "Merge Caption Branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Provided Caption": {
+      "main": [
+        [
+          {
+            "node": "Merge Caption Branches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Caption Branches": {
+      "main": [
+        [
+          {
+            "node": "Needs Image?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Image?": {
+      "main": [
+        [
+          {
+            "node": "AI Generate Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download Image URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Generate Image": {
+      "main": [
+        [
+          {
+            "node": "Download AI Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download AI Image": {
+      "main": [
+        [
+          {
+            "node": "Prepare LinkedIn Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Image URL": {
+      "main": [
+        [
+          {
+            "node": "Prepare LinkedIn Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare LinkedIn Payload": {
+      "main": [
+        [
+          {
+            "node": "Dry Run?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dry Run?": {
+      "main": [
+        [
+          {
+            "node": "Respond Preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "LinkedIn Init Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn Init Upload": {
+      "main": [
+        [
+          {
+            "node": "Merge Upload Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Upload Data": {
+      "main": [
+        [
+          {
+            "node": "LinkedIn Upload Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn Upload Image": {
+      "main": [
+        [
+          {
+            "node": "LinkedIn Create Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn Create Post": {
+      "main": [
+        [
+          {
+            "node": "Finalize Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Result": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "versionId": "1.0.0",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "n8n-ai-linkedin-poster"
+  },
+  "pinData": {},
+  "tags": [
+    {
+      "name": "linkedin"
+    },
+    {
+      "name": "ai"
+    },
+    {
+      "name": "social-media"
+    }
+  ]
+}
