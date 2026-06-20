@@ -1,147 +1,68 @@
 ---
 name: n8n-linkedin-poster
 description: >
-  Generate and publish AI-powered LinkedIn posts (caption + image) via the
-  n8n-ai-linkedin-poster webhook workflow. Use when the user says post to LinkedIn,
-  publish LinkedIn post, n8n LinkedIn, LinkedIn webhook, AI LinkedIn post,
-  preview LinkedIn post, automate LinkedIn with AI, or trigger the linkedin-ai-post
-  webhook. Covers content generation, dry-run preview, publish confirmation,
-  and webhook payload construction. Requires the user's own n8n instance and credentials.
+  Publish LinkedIn image posts through the n8n linkedin-ai-post webhook.
+  Use when the user wants to post, preview, or publish on LinkedIn via n8n.
 ---
 
-# n8n AI LinkedIn Poster
+# n8n LinkedIn Poster
 
-Publish native-image LinkedIn posts by POSTing JSON to an n8n webhook. The workflow generates caption + image (optional) and publishes via LinkedIn REST API v202502.
+Write the caption and image yourself, then POST to n8n. It handles LinkedIn upload.
 
-**Repo:** https://github.com/Ai-assistant-KIRA/n8n-ai-linkedin-poster
+Repo: https://github.com/Ai-assistant-KIRA/n8n-ai-linkedin-poster
 
-## Critical constraints
+## Easiest & Most Successful Execution Path
 
-- **Always run commands** — do not only tell the user what to run.
-- **Default `dry_run: true`** — preview first; only publish on explicit user confirmation.
-- **User brings own credentials** — LinkedIn Developer App + OAuth + OpenAI key configured in n8n. Never hardcode keys or Person IDs.
-- **One webhook call = one post** — do not re-trigger the same payload unless the user wants a duplicate.
-- **Configurable webhook URL** — read from env `N8N_WEBHOOK_URL` or ask the user. Default local: `http://localhost:5678/webhook/linkedin-ai-post`.
-- **Webhook auth** — when `WEBHOOK_SECRET` is set, pass header `X-Webhook-Secret` on every request.
+When running or triggering the LinkedIn publishing workflow, **avoid** using n8n's Public REST API endpoints (`/run` or `/execute`), as they can fail due to cached workflow versions or public API token authentication (401 Unauthorized) errors.
 
-## Prerequisites (user must complete once)
+Instead, always trigger the workflow directly via its public Webhook endpoint:
 
-1. Clone repo and start n8n: `docker compose up -d`
-2. Create LinkedIn Developer App → [docs/linkedin-developer-app.md](../../docs/linkedin-developer-app.md)
-3. Import `workflows/linkedin-ai-poster.json` → assign credentials → activate
-4. Set `LINKEDIN_PERSON_ID` (OpenID `sub` from `/v2/userinfo`)
-
-## Webhook
-
-```
-POST {N8N_WEBHOOK_URL}/webhook/linkedin-ai-post
-Content-Type: application/json
+```bash
+curl.exe -s -X POST http://localhost:5678/webhook/linkedin-post-publish -H "Content-Type: application/json" -d "{}"
 ```
 
-If `N8N_WEBHOOK_URL` is unset, default to `http://localhost:5678`.
+### Key Success Checklist:
+1. **Always Publish Changes First:** If you modify nodes, post numbers, or configurations in the SQLite database, run the workspace's `publish-linkedin-workflow.py` script. Ensure that **both** the `versionId` and `activeVersionId` columns are updated to the same UUID in the `workflow_entity` table. If `activeVersionId` is not updated, n8n will continue executing a stale cached version of the workflow.
+2. **Public Webhook Trigger:** Use a `curl.exe` POST request to `http://localhost:5678/webhook/linkedin-post-publish` with a payload of `{}`. This runs the active production version of the workflow, executes instantly, and completely bypasses all public REST API authentication checks.
+3. **Handle Server Freezes (Timeouts):** If the webhook or the `/healthz` endpoint (`http://localhost:5678/healthz`) times out, the local n8n Node process may be hanging. Safely stop the unresponsive process (`Stop-Process -Name node`) and restart a fresh, responsive background instance of n8n using `n8n start` in background mode.
 
-## Standard workflow
+## What to do
 
-### 1. Generate content JSON
+1. Draft the caption (see [prompts/linkedin-content-system-prompt.md](../../prompts/linkedin-content-system-prompt.md) if useful)
+2. Get an image URL or base64
+3. Call the webhook with `dry_run: true` first — show the user the result
+4. Only set `dry_run: false` when they say to publish
+5. Run the curl/commands yourself; don't just hand them to the user
 
-Read [prompts/linkedin-content-system-prompt.md](../../prompts/linkedin-content-system-prompt.md) and produce a payload. Minimum fields:
+Webhook: `POST {N8N_WEBHOOK_URL:-http://localhost:5678}/webhook/linkedin-ai-post`
+
+If `WEBHOOK_SECRET` is set, include header `X-Webhook-Secret`.
+
+## Preview
 
 ```json
 {
-  "topic": "Post subject",
-  "tone": "professional",
-  "hashtags": ["#AI", "#Automation"],
+  "caption": "Post text",
+  "image_url": "https://example.com/img.jpg",
   "dry_run": true
 }
 ```
 
-Modes — see [references/webhook-schema.md](references/webhook-schema.md):
+## Publish
 
-| Mode | Fields |
-|------|--------|
-| Full AI | `topic` only |
-| Custom caption | `caption` + `image_prompt` |
-| Full control | `caption` + `image_url` |
+Same payload, `"dry_run": false`.
 
-### 2. Preview (required)
+`caption` is always required. `image_url` or `image_base64` is required to actually post.
 
-```bash
-curl -s -X POST "${N8N_WEBHOOK_URL:-http://localhost:5678}/webhook/linkedin-ai-post" \
-  -H "Content-Type: application/json" \
-  -H "X-Webhook-Secret: ${WEBHOOK_SECRET:-}" \
-  -d '{
-    "topic": "YOUR TOPIC",
-    "tone": "insightful",
-    "dry_run": true
-  }'
-```
+## MCP
 
-Show the user the returned `caption`. Ask: **"Ready to publish?"**
+Same JSON if you trigger via n8n MCP — see [docs/mcp.md](../../docs/mcp.md).
 
-### 3. Publish (only after confirmation)
+## When things fail
 
-```bash
-curl -s -X POST "${N8N_WEBHOOK_URL:-http://localhost:5678}/webhook/linkedin-ai-post" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "topic": "YOUR TOPIC",
-    "tone": "insightful",
-    "dry_run": false
-  }'
-```
+- 404 → workflow not active
+- 401 → wrong webhook secret
+- 400 → missing caption or bad image URL
+- 500 → LinkedIn OAuth or image upload — check [docs/troubleshooting.md](../../docs/troubleshooting.md)
 
-Return `shareUrl` and `postUrn` from the response.
-
-### 4. Verify
-
-Open `shareUrl` or check n8n → **Executions** for the latest run.
-
-## Response shapes
-
-**Preview:**
-```json
-{ "success": true, "dryRun": true, "caption": "...", "message": "Preview only — set dry_run: false to publish." }
-```
-
-**Published:**
-```json
-{ "success": true, "dryRun": false, "postUrn": "urn:li:share:...", "shareUrl": "https://www.linkedin.com/feed/update/..." }
-```
-
-**Error:**
-```json
-{ "success": false, "error": "...", "hint": "See docs/troubleshooting.md" }
-```
-
-## Quick reference
-
-| Task | Action |
-|------|--------|
-| Preview post | POST with `dry_run: true` |
-| Publish post | POST with `dry_run: false` after user confirms |
-| Custom caption | Include `caption` in payload |
-| Custom image | Include `image_prompt` or `image_url` |
-| Setup help | [docs/linkedin-developer-app.md](../../docs/linkedin-developer-app.md) |
-| Payload examples | [examples/webhook-payloads.json](../../examples/webhook-payloads.json) |
-| Errors | [docs/troubleshooting.md](../../docs/troubleshooting.md) |
-
-## Platform install
-
-| Platform | Path |
-|----------|------|
-| **Cursor** | Copy to `.cursor/rules/n8n-linkedin-poster.mdc` or add skill path |
-| **Claude Code / Grok** | Copy `skills/n8n-linkedin-poster/` to `.grok/skills/` or `~/.claude/skills/` |
-| **Claude Projects** | Upload `SKILL.md` + `prompts/linkedin-content-system-prompt.md` as project knowledge |
-| **Codex** | Copy to `~/.codex/skills/n8n-linkedin-poster/` |
-
-See [references/install.md](references/install.md) for copy-paste instructions.
-
-## Common mistakes
-
-| Symptom | Fix |
-|---------|-----|
-| Webhook 404 | Activate workflow in n8n |
-| 401/403 LinkedIn | Reconnect OAuth; check [linkedin-developer-app.md](../../docs/linkedin-developer-app.md) |
-| Missing Person ID | Set `LINKEDIN_PERSON_ID` env var |
-| AI can't reach localhost | Use ngrok, n8n Cloud, or VPS public URL |
-| Accidental publish | Always default `dry_run: true` |
+Examples: [examples/webhook-payloads.json](../../examples/webhook-payloads.json)
