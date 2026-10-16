@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   n8n:
-    image: n8nio/n8n:latest
+    image: n8nio/n8n:1.70
     container_name: n8n-ai-linkedin-poster
     restart: unless-stopped
     ports:

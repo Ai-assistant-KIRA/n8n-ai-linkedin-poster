@@ -2,7 +2,7 @@
 
 # n8n AI LinkedIn Poster | Automate AI-Generated Posts with Images & Captions
 
-> Production-ready n8n workflow to generate & auto-publish AI-powered LinkedIn posts with stunning images and engaging captions. Trigger instantly from Claude, Cursor, Devin, or any AI assistant via webhook. Fully documented, self-hostable, and customizable.
+> Production-ready n8n workflow to generate & auto-publish AI-powered LinkedIn posts with stunning images and engaging captions. Trigger instantly from Claude, Cursor, Devin, Kiro Crew, or any AI assistant via webhook. Now with input validation, timing-safe auth, scheduled posting, post-publish callbacks, and execution metadata. Fully documented, self-hostable, and customizable.
 
 [![n8n](https://img.shields.io/badge/n8n-≥1.0-EA4B71?logo=n8n&logoColor=white)](https://n8n.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -58,16 +58,25 @@ Set `"dry_run": false` when you're ready to publish. Full guide → [docs/setup.
 ## Features
 
 - 🤖 **Full AI pipeline** — Generate captions (GPT-4o-mini) and images (DALL-E 3) from a single topic
-- 🔗 **Webhook-first** — One `POST` from Claude, Cursor, Devin, ChatGPT, or any HTTP client
+- 🔗 **Webhook-first** — One `POST` from Claude, Cursor, Devin, Kiro Crew, ChatGPT, or any HTTP client
 - 🖼️ **Native LinkedIn images** — REST API v202502 image upload + UGC post (no brittle scraping)
 - ✍️ **Flexible input** — Topic-only, custom caption, image URL, or full control
 - 👀 **Preview mode** — `dry_run: true` generates content without publishing
 - 🔌 **Provider-agnostic** — Swap OpenAI for Anthropic, Azure, Replicate, or local models
 - 🐳 **Self-hostable** — Docker Compose included; works on n8n Cloud too
 - 📚 **Battle-tested docs** — Setup, config, integrations, and troubleshooting guides
-- 🔒 **Webhook auth** — `WEBHOOK_SECRET` + `X-Webhook-Secret` header for production
+- 🔒 **Timing-safe webhook auth** — `crypto.timingSafeEqual` prevents timing side-channel attacks
 - 🧪 **CI validated** — GitHub Actions checks workflow JSON on every push
 - 🔓 **100% open source** — MIT licensed, no vendor lock-in, no credentials in repo
+
+### New in v2.0
+
+- 📅 **Scheduled posting** — `schedule` field queues posts for future publishing
+- 🔔 **Post-publish callbacks** — `callback_url` notifies your systems after successful publish
+- 🛡️ **Input validation** — Topic/caption length caps, hashtag limits, HTTPS-only image URLs, base64 size guards
+- 📊 **Execution metadata** — Response includes `executionId`, `executedAt`, `workflowVersion` for observability
+- 🧹 **XSS sanitization** — HTML tags stripped from caption and topic before LinkedIn API submission
+- 🤖 **Kiro Crew integration** — Cron scheduling, MCP triggers, silent notifications ([guide](docs/integrations/kiro-crew.md))
 
 ---
 
@@ -140,6 +149,7 @@ Trigger posts from the tools you already use:
 
 | Platform | Guide | One-liner |
 |----------|-------|-----------|
+| **Kiro Crew** | [docs/integrations/kiro-crew.md](docs/integrations/kiro-crew.md) | Cron scheduling, MCP triggers, silent delivery |
 | **Claude** | [docs/integrations/claude.md](docs/integrations/claude.md) | Add webhook URL to Project instructions |
 | **Cursor** | [docs/integrations/cursor.md](docs/integrations/cursor.md) | Use included `.cursor/rules/` + skill |
 | **Devin** | [docs/integrations/devin-and-agents.md](docs/integrations/devin-and-agents.md) | Tool definition with `dry_run` default |
@@ -161,17 +171,25 @@ POST /webhook/linkedin-ai-post
   "topic": "Your post topic",
   "tone": "professional",
   "hashtags": ["#AI", "#Automation"],
-  "dry_run": true
+  "dry_run": true,
+  "callback_url": "https://your-app.com/webhook/published",
+  "schedule": "2026-10-17T09:00:00Z"
 }
 ```
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `topic` | Yes* | Subject for AI generation |
-| `caption` | No | Skip AI caption if provided |
-| `image_prompt` | No | Custom image generation prompt |
-| `image_url` | No | Use existing image instead of AI |
+| `topic` | Yes* | Subject for AI generation (max 500 chars) |
+| `caption` | No | Skip AI caption if provided (max 3,000 chars) |
+| `image_prompt` | No | Custom image generation prompt (max 1,000 chars) |
+| `image_url` | No | Use existing image (HTTPS only) |
+| `image_base64` | No | Base64 image data (max 10MB) |
 | `dry_run` | No | `true` = preview only (recommended first) |
+| `callback_url` | No | POST `{postUrn, shareUrl, caption}` here after publish |
+| `schedule` | No | ISO 8601 datetime to delay publishing |
+| `hashtags` | No | Array of hashtags (max 10) |
+| `tone` | No | `professional` \| `insightful` \| `conversational` \| `bold` |
+| `visibility` | No | `PUBLIC` (default) or `CONNECTIONS` |
 
 \* Not required if `caption` + `image_url` are both provided.
 
@@ -283,13 +301,21 @@ Stay well under ~150 posts/day for personal profiles. Add queuing for high-volum
 - [x] Webhook authentication (`WEBHOOK_SECRET`)
 - [x] CI validation + smoke test scripts
 - [x] `image_base64` support + caption-only preview
+- [x] Timing-safe webhook secret comparison
+- [x] Input validation (length caps, HTTPS-only URLs, base64 size guard)
+- [x] XSS sanitization on caption/topic fields
+- [x] Post-publish webhook callbacks (`callback_url`)
+- [x] Execution metadata (`executionId`, `executedAt`, `workflowVersion`)
+- [x] Enhanced AI caption prompt (2026 LinkedIn algorithm)
+- [x] Kiro Crew integration (cron + MCP + silent notifications)
+- [ ] Built-in scheduling queue (n8n Cron + Data Store)
 - [ ] Company Page posting support
-- [ ] Built-in scheduling queue (n8n Data Store)
 - [ ] Carousel / multi-image posts
 - [ ] Slack/Discord notification on publish
 - [ ] n8n.io community workflow listing
 - [ ] Video thumbnail + document post support
 - [ ] Community prompt pack (vertical-specific templates)
+- [ ] A/B caption testing (generate 2, pick best engagement prediction)
 
 Have an idea? [Open an issue](https://github.com/Ai-assistant-KIRA/n8n-ai-linkedin-poster/issues) or submit a PR!
 

@@ -92,6 +92,27 @@
         "tone": "conversational",
         "dry_run": true
       }
+    },
+    {
+      "name": "with_callback",
+      "description": "Publish and notify your system via callback URL when done.",
+      "payload": {
+        "topic": "Announcing our new automation toolkit",
+        "tone": "bold",
+        "generate_image": true,
+        "dry_run": false,
+        "callback_url": "https://your-app.example.com/webhook/linkedin-published"
+      }
+    },
+    {
+      "name": "scheduled_post",
+      "description": "Queue a post for future publishing at a specific time.",
+      "payload": {
+        "topic": "Weekly automation insights roundup",
+        "tone": "professional",
+        "schedule": "2026-10-17T09:00:00Z",
+        "dry_run": false
+      }
     }
   ],
   "response_success": {
@@ -103,7 +124,10 @@
     "captionSource": "ai-generated",
     "imageSource": "ai-generated",
     "mediaTitle": "AI Generated Post",
-    "api": "linkedin-rest-v202502"
+    "api": "linkedin-rest-v202502",
+    "executionId": "abc123",
+    "executedAt": "2026-10-16T09:00:00.000Z",
+    "workflowVersion": "2.0.0"
   },
   "response_preview": {
     "success": true,
@@ -112,6 +136,9 @@
     "captionSource": "ai-generated",
     "imageSource": "ai-generated",
     "mediaTitle": "AI Generated Post",
-    "message": "Preview only — set dry_run: false to publish."
+    "message": "Preview only — set dry_run: false to publish.",
+    "executionId": "abc124",
+    "executedAt": "2026-10-16T09:00:00.000Z",
+    "workflowVersion": "2.0.0"
   }
 }
