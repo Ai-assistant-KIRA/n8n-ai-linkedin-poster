@@ -11,35 +11,39 @@ const body = raw.body ?? raw;
 const headers = raw.headers || {};
 const config = $('Configuration').first().json;
 
-const topic = (body.topic || '').trim();
-const caption = (body.caption || body.text || '').trim();
-const imagePrompt = (body.image_prompt || body.imagePrompt || '').trim();
+// --- Input extraction with sanitization ---
+const stripTags = (s) => String(s || '').replace(/<[^>]*>/g, '').trim();
+const topic = stripTags(body.topic).slice(0, 500);
+const caption = stripTags(body.caption || body.text).slice(0, 3000);
+const imagePrompt = (body.image_prompt || body.imagePrompt || '').trim().slice(0, 1000);
 const imageUrl = (body.image_url || body.imageUrl || '').trim();
 const imageBase64 = body.image_base64 || body.imageBase64 || null;
 const tone = (body.tone || 'professional').trim();
-const hashtags = Array.isArray(body.hashtags) ? body.hashtags : [];
+const hashtags = (Array.isArray(body.hashtags) ? body.hashtags : []).slice(0, 10);
 const dryRun = Boolean(body.dry_run ?? body.dryRun ?? false);
 const publish = body.publish !== false;
 const forceImage = Boolean(body.generate_image ?? body.generateImage ?? false);
+const callbackUrl = (body.callback_url || body.callbackUrl || '').trim();
+const schedule = (body.schedule || '').trim();
 
+// --- URL protocol validation ---
+if (imageUrl && !/^https:\/\//i.test(imageUrl)) {
+  return [{ json: { unauthorized: false, success: false, error: 'image_url must use HTTPS protocol', hint: 'Provide a URL starting with https://', statusCode: 400 } }];
+}
+
+// --- Base64 size guard (10MB) ---
+if (imageBase64 && imageBase64.length > 13_400_000) {
+  return [{ json: { unauthorized: false, success: false, error: 'image_base64 exceeds 10MB limit', hint: 'Compress or resize the image before encoding', statusCode: 400 } }];
+}
+
+// --- Timing-safe webhook secret comparison ---
 const secret = (config.webhookSecret || '').trim();
 if (secret && secret !== 'DISABLED') {
-  const provided = (
-    headers['x-webhook-secret'] ||
-    headers['X-Webhook-Secret'] ||
-    body.webhook_secret ||
-    body.webhookSecret ||
-    ''
-  ).trim();
-  if (provided !== secret) {
-    return [{
-      json: {
-        unauthorized: true,
-        success: false,
-        error: 'Invalid or missing X-Webhook-Secret header',
-        hint: 'Set WEBHOOK_SECRET in env and pass header X-Webhook-Secret on every request.',
-      },
-    }];
+  const provided = (headers['x-webhook-secret'] || headers['X-Webhook-Secret'] || body.webhook_secret || body.webhookSecret || '').trim();
+  const a = Buffer.from(secret);
+  const b = Buffer.from(provided.padEnd(secret.length));
+  if (a.length !== Buffer.from(provided).length || !require('crypto').timingSafeEqual(a, b)) {
+    return [{ json: { unauthorized: true, success: false, error: 'Invalid or missing X-Webhook-Secret header', hint: 'Set WEBHOOK_SECRET in env and pass header X-Webhook-Secret on every request.' } }];
   }
 }
 
@@ -48,14 +52,15 @@ const hasImageBase64 = !!imageBase64;
 const skipAiImage = dryRun && !forceImage;
 const needsAiImage = !hasImageUrl && !hasImageBase64 && !skipAiImage && (imagePrompt || topic || forceImage);
 const needsCaption = !caption && (topic || body.generate_caption);
-const shouldPost = !dryRun && publish;
+const shouldPost = !dryRun && publish && !schedule;
 const captionOnlyPreview = dryRun && !hasImageUrl && !hasImageBase64 && !needsAiImage;
+const isScheduled = !!schedule;
 
 return [{
   json: {
     topic,
     caption,
-    imagePrompt: imagePrompt || (topic ? `Professional LinkedIn infographic about: ${topic}. Clean, modern, high-contrast, no text overlays.` : ''),
+    imagePrompt: imagePrompt || (topic ? `Professional LinkedIn feed image about: ${topic}. Clean modern design, bold colors, professional setting, no text overlay, no watermarks, no logos, high resolution, square 1:1 composition.` : ''),
     imageUrl,
     imageBase64,
     tone,
@@ -69,11 +74,17 @@ return [{
     hasImageBase64,
     needsAiImage,
     captionOnlyPreview,
+    isScheduled,
+    schedule,
+    callbackUrl,
     personId: config.personId,
     linkedinApiVersion: config.linkedinApiVersion,
     httpMaxRetries: config.httpMaxRetries,
-    mediaTitle: (body.media_title || body.mediaTitle || topic || 'AI Generated Post').slice(0, 200),
+    mediaTitle: stripTags(body.media_title || body.mediaTitle || topic || 'AI Generated Post').slice(0, 200),
     visibility: body.visibility || 'PUBLIC',
+    executionId: $execution?.id || 'unknown',
+    executedAt: new Date().toISOString(),
+    workflowVersion: '2.0.0',
   },
 }];"""
 
@@ -464,7 +475,7 @@ workflow = {
     },
     "settings": {"executionOrder": "v1", "errorWorkflow": "", "callerPolicy": "workflowsFromSameOwner"},
     "active": False,
-    "versionId": "1.2.0",
+    "versionId": "2.0.0",
     "meta": {"templateCredsSetupCompleted": False, "instanceId": "n8n-ai-linkedin-poster"},
     "pinData": {},
     "tags": [{"name": "linkedin"}, {"name": "ai"}, {"name": "social-media"}],
